@@ -1,6 +1,6 @@
 # AI chatter - lilvikbot
 
-a lightweight, Twitch native chatbot that learns from live chat using Markov chains. it mimics the style and tone of stream conversations and can follow streamers through raids to keep the conversation flowing in new channels — making its way through different communities on Twitch. it also posts occasional thoughts to Twitter, based on what it’s seen.
+a lightweight, Twitch native chatbot that learns from live chat using Markov chains. it mimics the style and tone of stream conversations and can follow streamers through raids to keep the conversation flowing in new channels making its way through different communities on Twitch. it also posts occasional thoughts to Twitter, based on what it’s seen.
 
 ## features
 

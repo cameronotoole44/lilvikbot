@@ -3,3 +3,4 @@ venv
 venv311
 
 filters/hard_block.txt
+*.log

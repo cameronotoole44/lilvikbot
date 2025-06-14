@@ -37,13 +37,14 @@ note: `hard_block.txt` is not included in this repo to avoid hosting offensive l
 - (っ ▀¯▀)つ twitch chat logging + markov model generation
 - (っ ▀¯▀)つ passive chat mimicry
 - (っ ▀¯▀)つ safe message filtering
+- (っ ▀¯▀)つ bluesky auto-posting
 
 **in progress**
 
-- ( ˇ෴ˇ ) twitter/bluesky auto-posting
-- ( ˇ෴ˇ ) auto-follow twitch raids
 - ( ˇ෴ˇ ) kick.com support
+- ( ˇ෴ˇ ) auto-follow twitch raids
 - ( ˇ෴ˇ ) persistent memory across sessions
 - ( ˇ෴ˇ ) tone/personality tuning via seed messages
+- ( ˇ෴ˇ ) twitter auto-posting
 
 not your typical chatbot. just vibes

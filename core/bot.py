@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import asyncio
 import markovify
@@ -38,6 +39,29 @@ def is_speakable(text: str) -> bool:
     lower = text.lower()
     return not any(bad in lower for bad in HARD_BLOCK.union(SOFT_BLOCK, SPAM_BLOCK))
 
+def clean_message(text: str) -> str:
+    # remove @mentions and links
+    text = re.sub(r'@\w+', '', text)
+    text = re.sub(r'https?://\S+|www\.\S+', '', text)
+
+    # if emote is repeated more than 3 times
+    tokens = text.split()
+    cleaned = []
+    last = None
+    streak = 0
+
+    for token in tokens:
+        if token == last:
+            streak += 1
+            if streak <= 3:
+                cleaned.append(token)
+        else:
+            streak = 1
+            cleaned.append(token)
+            last = token
+
+    return " ".join(cleaned).strip()
+
 # logging
 def log_event(file, content):
     with open(file, "a", encoding="utf-8") as f:
@@ -66,13 +90,16 @@ class LilVikBot(Bot):
             print(f"[JOINED] LilVikBot has joined #{channel.name}")
 
     async def event_message(self, message):
-        if message.echo or not BOT_ACTIVE:
+        if message.echo:
             return
 
-        content = message.content.strip()
-        if 3 < len(content) < 200 and is_learnable(content):
-            self.message_log.append(content)
-            log_event("learned.log", content)
+        raw = message.content.strip()
+        cleaned = clean_message(raw)
+
+        if 3 < len(cleaned) < 200 and is_learnable(cleaned):
+            if cleaned not in self.message_log:
+                self.message_log.append(cleaned)
+                log_event("learned.log", cleaned)
 
             if len(self.message_log) % 50 == 0:
                 print("[TRAINING] Updating Markov model...")
@@ -102,10 +129,7 @@ class LilVikBot(Bot):
 
         if not message:
             message = random.choice([
-                "just vibing",
-                "KEKW",
-                "peepoHappy",
-                "<3",
+                "just vibing", "KEKW", "peepoHappy", "<3"
             ])
 
         try:
@@ -118,3 +142,4 @@ class LilVikBot(Bot):
 
 bot = LilVikBot()
 bot.run()
+

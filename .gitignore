@@ -3,5 +3,3 @@ venv
 venv311
 
 filters/hard_block.txt
-filters/soft_block.txt
-filters/spam_block.txt

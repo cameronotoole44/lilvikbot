@@ -24,17 +24,13 @@ markovify==0.9.4
 multidict==6.4.4
 oauthlib==3.2.2
 propcache==0.3.2
-pusherclient==0.3.0
 pycparser==2.22
 pydantic==2.11.7
 pydantic_core==2.33.2
 python-dotenv==1.1.0
-python-engineio==4.12.2
-python-socketio==5.13.0
 requests==2.32.4
 requests-oauthlib==2.0.0
 schedule==1.2.2
-simple-websocket==1.1.0
 sniffio==1.3.1
 tweepy==4.15.0
 twitchio==2.10.0
@@ -42,7 +38,6 @@ typing-inspection==0.4.1
 typing_extensions==4.14.0
 Unidecode==1.4.0
 urllib3==2.4.0
-websocket-client==1.8.0
 websockets==13.1
 wsproto==1.2.0
 yarl==1.20.1

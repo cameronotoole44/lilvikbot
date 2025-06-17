@@ -87,9 +87,10 @@ class LilVikSkyPoster:
             else:
                 print("[BLSKY] No new safe messages found.")
 
-            delay = random.randint(4 * 3600, 8 * 3600)
+            delay = random.randint(2 * 3600, 4 * 3600)
             print(f"[BLSKY] Sleeping for {delay // 60} minutes.")
             await asyncio.sleep(delay)
+
 
 if __name__ == "__main__":
     poster = LilVikSkyPoster()

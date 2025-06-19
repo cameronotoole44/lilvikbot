@@ -1,6 +1,7 @@
 import os
 import random
 import asyncio
+import markovify
 from datetime import datetime
 from dotenv import load_dotenv
 from atproto import Client
@@ -9,6 +10,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FILTER_DIR = os.path.join(BASE_DIR, "..", "filters")
 LOG_FILE = os.path.join(BASE_DIR, "..", "bsky_posts.log")
 STATIC_POSTS = os.path.join(FILTER_DIR, "static_posts.txt")
+LEARNED_LOG = os.path.join(BASE_DIR, "..", "learned.log")
 
 load_dotenv()
 
@@ -47,26 +49,47 @@ def load_post_history(filename: str) -> set:
     with open(filename, "r", encoding="utf-8") as f:
         return set(line.split("] ", 1)[1].strip() for line in f if "] " in line)
 
+# markov loader
+def build_markov_model() -> markovify.NewlineText | None:
+    if not os.path.exists(LEARNED_LOG):
+        return None
+    lines = []
+    with open(LEARNED_LOG, "r", encoding="utf-8") as f:
+        for line in f:
+            if "] " in line:
+                content = line.split("] ", 1)[1].strip()
+                if content:
+                    lines.append(content)
+    if not lines:
+        return None
+    return markovify.NewlineText("\n".join(lines), state_size=1)
+
 # poster class
 class LilVikSkyPoster:
     def __init__(self):
         self.client = Client()
         self.posted_set = load_post_history(LOG_FILE)
+        self.model = build_markov_model()
 
     async def login(self):
         await asyncio.to_thread(self.client.login, BSKY_HANDLE, BSKY_PASSWORD)
         print(f"[BLSKY] Logged in as @{BSKY_HANDLE}")
 
-    def get_valid_message(self) -> str | None:
-        if not os.path.exists(STATIC_POSTS):
-            print("[BLSKY] No static_posts.txt found.")
+    def get_valid_markov(self) -> str | None:
+        if not self.model:
             return None
+        for _ in range(5):
+            candidate = self.model.make_short_sentence(300)
+            if candidate and is_safe_bsky(candidate) and candidate not in self.posted_set:
+                return candidate
+        return None
 
+    def get_fallback_static(self) -> str | None:
+        if not os.path.exists(STATIC_POSTS):
+            return None
         with open(STATIC_POSTS, "r", encoding="utf-8") as f:
             messages = [line.strip() for line in f if line.strip()]
-
         random.shuffle(messages)
-
         for msg in messages:
             if msg not in self.posted_set and is_safe_bsky(msg):
                 return msg
@@ -75,7 +98,12 @@ class LilVikSkyPoster:
     async def post_loop(self):
         while True:
             await self.login()
-            msg = self.get_valid_message()
+
+            msg = self.get_valid_markov()
+            if not msg:
+                print("[BLSKY] No valid Markov message found, using fallback.")
+                msg = self.get_fallback_static()
+
             if msg:
                 try:
                     self.client.send_post(text=msg)

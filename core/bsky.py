@@ -9,8 +9,7 @@ from atproto import Client
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FILTER_DIR = os.path.join(BASE_DIR, "..", "filters")
 LOG_FILE = os.path.join(BASE_DIR, "..", "bsky_posts.log")
-STATIC_POSTS = os.path.join(FILTER_DIR, "static_posts.txt")
-LEARNED_LOG = os.path.join(BASE_DIR, "..", "learned.log")
+LEARNED_LOG = os.path.join(BASE_DIR, "learned.log")
 
 load_dotenv()
 
@@ -51,15 +50,18 @@ def load_post_history(filename: str) -> set:
 
 # markov loader
 def build_markov_model() -> markovify.NewlineText | None:
+    print(f"[DEBUG] Looking for learned.log at: {LEARNED_LOG}")
     if not os.path.exists(LEARNED_LOG):
+        print("[MODEL] learned.log not found.")
         return None
     lines = []
     with open(LEARNED_LOG, "r", encoding="utf-8") as f:
         for line in f:
             if "] " in line:
                 content = line.split("] ", 1)[1].strip()
-                if content:
+                if len(content.split()) >= 2:
                     lines.append(content)
+    print(f"[MODEL] Using {len(lines)} valid lines.")
     if not lines:
         return None
     return markovify.NewlineText("\n".join(lines), state_size=1)
@@ -77,32 +79,38 @@ class LilVikSkyPoster:
 
     def get_valid_markov(self) -> str | None:
         if not self.model:
+            print("[MODEL] No model loaded.")
             return None
         for _ in range(5):
-            candidate = self.model.make_short_sentence(300)
-            if candidate and is_safe_bsky(candidate) and candidate not in self.posted_set:
-                return candidate
-        return None
-
-    def get_fallback_static(self) -> str | None:
-        if not os.path.exists(STATIC_POSTS):
-            return None
-        with open(STATIC_POSTS, "r", encoding="utf-8") as f:
-            messages = [line.strip() for line in f if line.strip()]
-        random.shuffle(messages)
-        for msg in messages:
-            if msg not in self.posted_set and is_safe_bsky(msg):
-                return msg
+            candidate = self.model.make_short_sentence(300, tries=100)
+            print(f"[TRY] {candidate}")
+            if not candidate:
+                continue
+            if candidate in self.posted_set:
+                print(f"[SKIP] Already posted: {candidate}")
+                continue
+            if not is_safe_bsky(candidate):
+                print(f"[BLOCKED] Filtered out: {candidate}")
+                continue
+            return candidate
         return None
 
     async def post_loop(self):
         while True:
             await self.login()
 
-            msg = self.get_valid_markov()
-            if not msg:
-                print("[BLSKY] No valid Markov message found, using fallback.")
-                msg = self.get_fallback_static()
+            msg = None
+            for attempt in range(5):
+                candidate = self.get_valid_markov()
+                if not candidate:
+                    break
+                print(f"\n[PREVIEW] Generated: {candidate}")
+                confirm = input("Post this? [Y/n]: ").strip().lower()
+                if confirm in ("", "y", "yes"):
+                    msg = candidate
+                    break
+                else:
+                    print("[INFO] Skipping. Trying again...\n")
 
             if msg:
                 try:
@@ -110,15 +118,15 @@ class LilVikSkyPoster:
                     print(f"[BLSKY] Posted: {msg}")
                     log_event(LOG_FILE, msg)
                     self.posted_set.add(msg)
+                    print("[LOGGED] Post saved to bsky_posts.log")
                 except Exception as e:
                     print(f"[BLSKY] Failed to post: {e}")
             else:
-                print("[BLSKY] No new safe messages found.")
+                print("[BLSKY] No new Markov messages approved. Skipping post.")
 
             delay = random.randint(2 * 3600, 4 * 3600)
             print(f"[BLSKY] Sleeping for {delay // 60} minutes.")
             await asyncio.sleep(delay)
-
 
 if __name__ == "__main__":
     poster = LilVikSkyPoster()

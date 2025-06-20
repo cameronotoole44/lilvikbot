@@ -16,11 +16,6 @@ TOKEN = raw_token.replace("oauth:", "")
 CHANNEL = os.getenv("TWITCH_CHANNEL", "").strip()
 BOT_ACTIVE = os.getenv("BOT_ACTIVE", "true").lower() == "true"
 
-# debug prints
-# print(f"[DEBUG] twitchio version: {twitchio.__version__}")
-# print(f"[DEBUG] using token prefix: {TOKEN[:6]}... (length {len(TOKEN)})")
-# print(f"[DEBUG] channel: {CHANNEL}")
-
 MAX_MEMORY = 10000  # cap
 
 # filters
@@ -49,8 +44,11 @@ def is_speakable(text: str) -> bool:
     return not any(bad in lower for bad in HARD_BLOCK.union(SOFT_BLOCK, SPAM_BLOCK))
 
 def clean_message(text: str) -> str:
-    # remove @mentions and links
-    text = re.sub(r'@\w+', '', text)
+    # skips messages with usernames
+    if "@" in text and re.search(r'@\w+', text):
+        return ""
+
+    # remove links
     text = re.sub(r'https?://\S+|www\.\S+', '', text)
 
     # if emote is repeated more than 3 times
@@ -145,7 +143,7 @@ class LilVikBot(Bot):
             return
 
         await asyncio.sleep(self.dynamic_delay)
-        self.dynamic_delay = random.randint(120, 300)  #2–5 minutes
+        self.dynamic_delay = random.randint(120, 300)  # 2–5 minutes
 
         message = None
         if self.model:
@@ -170,3 +168,4 @@ class LilVikBot(Bot):
 if __name__ == "__main__":
     bot = LilVikBot()
     bot.run()
+

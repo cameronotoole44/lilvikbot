@@ -59,12 +59,12 @@ def build_markov_model() -> markovify.NewlineText | None:
         for line in f:
             if "] " in line:
                 content = line.split("] ", 1)[1].strip()
-                if len(content.split()) >= 2:
+                if len(content.split()) >= 4:
                     lines.append(content)
     print(f"[MODEL] Using {len(lines)} valid lines.")
     if not lines:
         return None
-    return markovify.NewlineText("\n".join(lines), state_size=1)
+    return markovify.NewlineText("\n".join(lines), state_size=2)
 
 # poster class
 class LilVikSkyPoster:

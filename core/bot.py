@@ -3,7 +3,6 @@ import re
 import random
 import asyncio
 import markovify
-import twitchio
 from twitchio.ext.commands import Bot
 from twitchio.ext.routines import routine
 from dotenv import load_dotenv
@@ -16,7 +15,8 @@ TOKEN = raw_token.replace("oauth:", "")
 CHANNEL = os.getenv("TWITCH_CHANNEL", "").strip()
 BOT_ACTIVE = os.getenv("BOT_ACTIVE", "true").lower() == "true"
 
-MAX_MEMORY = 10000  # cap
+MAX_MEMORY = 10000 # cap
+RAID_LOG_FILE = "raided_channels.log"
 
 # filters
 def load_forbidden_words(filename):
@@ -44,11 +44,7 @@ def is_speakable(text: str) -> bool:
     return not any(bad in lower for bad in HARD_BLOCK.union(SOFT_BLOCK, SPAM_BLOCK))
 
 def clean_message(text: str) -> str:
-    # skips messages with usernames
-    if "@" in text and re.search(r'@\w+', text):
-        return ""
-
-    # remove links
+    text = re.sub(r'@\w+', '', text)
     text = re.sub(r'https?://\S+|www\.\S+', '', text)
 
     # if emote is repeated more than 3 times
@@ -65,28 +61,29 @@ def clean_message(text: str) -> str:
             last = token
     return " ".join(cleaned).strip()
 
-# logging
 def log_event(file, content):
     with open(file, "a", encoding="utf-8") as f:
         f.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {content}\n")
 
-# bot class
+def load_joined_channels():
+    if not os.path.exists(RAID_LOG_FILE):
+        return set()
+    with open(RAID_LOG_FILE, "r", encoding="utf-8") as f:
+        return set(line.strip().split("] ")[-1].lower() for line in f if "] " in line)
+
 class LilVikBot(Bot):
     def __init__(self):
-        super().__init__(
-            token=TOKEN,
-            prefix="!",
-            initial_channels=[CHANNEL]
-        )
+        super().__init__(token=TOKEN, prefix="!", initial_channels=[CHANNEL])
 
         self.message_log = []
         self.model = None
         self.can_speak = True
-        self.dynamic_delay = 120  # seconds
+        self.dynamic_delay = 120
+        self.raided_channels = load_joined_channels()
+        self.post_counter.start()
 
         self._load_memory()
         self._initialize_model()
-        self.post_counter.start()
 
     def _load_memory(self):
         if os.path.exists("learned.log"):
@@ -118,6 +115,17 @@ class LilVikBot(Bot):
 
         cleaned = clean_message(message.content.strip())
         print(f"[MESSAGE] Received: {message.content.strip()} -> Cleaned: {cleaned}")
+
+        # simple raid detection - no HTTP call
+        raid_match = re.search(r"is raiding with a party of", message.content.lower())
+        if raid_match and message.author:
+            new_channel = message.author.name.lower()
+            if new_channel not in self.raided_channels:
+                print(f"[RAID] Detected raid from @{new_channel}")
+                await self.join_channels([new_channel])
+                self.raided_channels.add(new_channel)
+                log_event(RAID_LOG_FILE, new_channel)
+                print(f"[RAID LOG] Added {new_channel} to {RAID_LOG_FILE}")
 
         if 3 < len(cleaned) < 200 and is_learnable(cleaned):
             print("[LEARN] Passed filter")
@@ -168,4 +176,3 @@ class LilVikBot(Bot):
 if __name__ == "__main__":
     bot = LilVikBot()
     bot.run()
-

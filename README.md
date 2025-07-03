@@ -10,7 +10,7 @@ A lightweight chatbot that learns from live chat using Markov chains. It mimics 
 - passively listens and logs chat messages
 - builds a local Markov model to mimic the flow of real-time Twitch conversations
 - occasionally sends messages into chat based on what it’s learned
-- follows Twitch raids and joins new chats automatically **in testing**
+- follows Twitch raids and joins new chats automatically (**in testing**)
 - logs visited/raided channels to a file
 - posts once or twice daily to Bluesky using model-generated thoughts
 - includes TOS-safe filtering and cooldown logic to avoid spam or sketchy output
@@ -35,8 +35,8 @@ A lightweight chatbot that learns from live chat using Markov chains. It mimics 
 3. every 50 new messages, it retrains its Markov model
 4. at randomized intervals, it generates a message and speaks in chat (if allowed)
 5. once or twice a day, it posts a Bluesky update based on learned phrases
-6. when a streamer is raided, lilvikbot will follow and begin learning in the new channel **in testing**
-7. visited channels are logged in `raided_channels.log` for manual inspection or expansion **in testing**
+6. when a streamer is raided, lilvikbot will follow and begin learning in the new channel (**in testing**)
+7. visited channels are logged in `raided_channels.log` for manual inspection or expansion (**in testing**)
 
 ## moderation
 

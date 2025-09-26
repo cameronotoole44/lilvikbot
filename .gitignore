@@ -2,5 +2,7 @@
 venv
 venv311
 
+TODO.txt
+
 filters/hard_block.txt
 *.log

@@ -1,7 +1,7 @@
 .env
 venv
 venv311
-
+.venv
 TODO.txt
 
 filters/hard_block.txt

@@ -1,4 +1,4 @@
-# AI chatter - lilvikbot
+# lilvikbot
 
 ![hero](demo/lilvikbot.png)
 

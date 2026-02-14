@@ -8,6 +8,8 @@ from twitchio.ext.routines import routine
 from dotenv import load_dotenv
 from datetime import datetime
 
+from moments import MomentDetector, MomentType, MOMENT_CONFIGS
+
 load_dotenv()
 
 raw_token = os.getenv("TWITCH_OAUTH_TOKEN", "").strip()
@@ -71,6 +73,7 @@ def load_joined_channels():
     with open(RAID_LOG_FILE, "r", encoding="utf-8") as f:
         return set(line.strip().split("] ")[-1].lower() for line in f if "] " in line)
 
+
 class LilVikBot(Bot):
     def __init__(self):
         super().__init__(token=TOKEN, prefix="!", initial_channels=[CHANNEL])
@@ -80,6 +83,7 @@ class LilVikBot(Bot):
         self.can_speak = True
         self.dynamic_delay = 120
         self.raided_channels = load_joined_channels()
+        self.moment_detector = MomentDetector(window_size=15)
         self.post_counter.start()
 
         self._load_memory()
@@ -114,7 +118,9 @@ class LilVikBot(Bot):
             return
 
         cleaned = clean_message(message.content.strip())
-        print(f"[MESSAGE] Received: {message.content.strip()} -> Cleaned: {cleaned}")
+        print(f"[MESSAGE] {cleaned}")
+
+        self.moment_detector.add_message(cleaned)
 
         # simple raid detection - no HTTP call
         raid_match = re.search(r"is raiding with a party of", message.content.lower())
@@ -128,18 +134,48 @@ class LilVikBot(Bot):
                 print(f"[RAID LOG] Added {new_channel} to {RAID_LOG_FILE}")
 
         if 3 < len(cleaned) < 200 and is_learnable(cleaned):
-            print("[LEARN] Passed filter")
             if cleaned not in self.message_log:
                 self.message_log.append(cleaned)
                 log_event("learned.log", cleaned)
-                print("[LEARN] Appended and logged")
                 if len(self.message_log) > MAX_MEMORY:
                     self.message_log.pop(0)
                 if len(self.message_log) % 50 == 0:
                     print("[TRAINING] Updating Markov model...")
                     self.model = markovify.NewlineText("\n".join(self.message_log))
-        else:
-            print("[SKIP] Message not learnable or too short/long")
+
+    def generate_contextual_message(self) -> str | None:
+        moment = self.moment_detector.detect()
+        print(f"[MOMENT] Detected: {moment.value}")
+
+        if not self.model:
+            return self.moment_detector.get_fallback(moment)
+
+        if moment == MomentType.EMOTE_SPAM:
+            return self.moment_detector.get_fallback(moment)
+
+        if moment != MomentType.NEUTRAL:
+            keywords = self.moment_detector.get_moment_keywords(moment)
+            candidate = self._generate_with_keywords(keywords)
+            if candidate:
+                return candidate
+            return self.moment_detector.get_fallback(moment)
+
+        for _ in range(5):
+            candidate = self.model.make_short_sentence(200)
+            if candidate and is_speakable(candidate):
+                return candidate
+
+        return self.moment_detector.get_fallback(MomentType.NEUTRAL)
+
+    def _generate_with_keywords(self, keywords: set[str]) -> str | None:
+        for _ in range(10):
+            candidate = self.model.make_short_sentence(200)
+            if not candidate or not is_speakable(candidate):
+                continue
+            lower = candidate.lower()
+            if any(kw in lower for kw in keywords):
+                return candidate
+        return None
 
     @routine(seconds=30.0)
     async def post_counter(self):
@@ -153,22 +189,15 @@ class LilVikBot(Bot):
         await asyncio.sleep(self.dynamic_delay)
         self.dynamic_delay = random.randint(120, 300)  # 2–5 minutes
 
-        message = None
-        if self.model:
-            for _ in range(5):
-                candidate = self.model.make_short_sentence(200)
-                print(f"[MODEL TRY] {candidate}")
-                if candidate and is_speakable(candidate):
-                    message = candidate
-                    break
+        message = self.generate_contextual_message()
 
         if not message:
             message = random.choice(["just vibing", "KEKW", "peepoHappy", "<3"])
 
         try:
             await channel.send(message)
-            log_event("spoken.log", message)
-            print(f"[SENT] {message} (next in {self.dynamic_delay}s)")
+            log_event("spoken.log", f"[{self.moment_detector.detect().value}] {message}")
+            print(f"[SENT] {message} (moment: {self.moment_detector.detect().value}, next in {self.dynamic_delay}s)")
         except Exception as e:
             print(f"[FAIL] {e}")
             self.can_speak = False

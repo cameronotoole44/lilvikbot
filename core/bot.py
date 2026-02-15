@@ -29,7 +29,7 @@ RAID_LOG_FILE = os.path.join(DATA_DIR, "raided_channels.log")
 
 # filters
 def load_forbidden_words(filename):
-    path = os.path.join(FILTER_DIR, "filters")
+    path = os.path.join(FILTER_DIR, filename)
     if not os.path.exists(path):
         return set()
     with open(path, "r", encoding="utf-8") as f:
@@ -143,7 +143,7 @@ class LilVikBot(Bot):
         if 3 < len(cleaned) < 200 and is_learnable(cleaned):
             if cleaned not in self.message_log:
                 self.message_log.append(cleaned)
-                log_event("learned.log", cleaned)
+                log_event(LEARNED_LOG, cleaned)
                 if len(self.message_log) > MAX_MEMORY:
                     self.message_log.pop(0)
                 if len(self.message_log) % 50 == 0:
@@ -203,7 +203,7 @@ class LilVikBot(Bot):
 
         try:
             await channel.send(message)
-            log_event("spoken.log", f"[{self.moment_detector.detect().value}] {message}")
+            log_event(SPOKEN_LOG, f"[{self.moment_detector.detect().value}] {message}")
             print(f"[SENT] {message} (moment: {self.moment_detector.detect().value}, next in {self.dynamic_delay}s)")
         except Exception as e:
             print(f"[FAIL] {e}")

@@ -7,9 +7,10 @@ from dotenv import load_dotenv
 from atproto import Client
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "..", "data")
 FILTER_DIR = os.path.join(BASE_DIR, "..", "filters")
-LOG_FILE = os.path.join(BASE_DIR, "..", "bsky_posts.log")
-LEARNED_LOG = os.path.join(BASE_DIR, "learned.log")
+BSKY_LOG = os.path.join(DATA_DIR, "bsky_posts.log")
+LEARNED_LOG = os.path.join(DATA_DIR, "learned.log")
 
 load_dotenv()
 
@@ -70,7 +71,7 @@ def build_markov_model() -> markovify.NewlineText | None:
 class LilVikSkyPoster:
     def __init__(self):
         self.client = Client()
-        self.posted_set = load_post_history(LOG_FILE)
+        self.posted_set = load_post_history(BSKY_LOG)
         self.model = build_markov_model()
 
     async def login(self):
@@ -116,7 +117,7 @@ class LilVikSkyPoster:
                 try:
                     self.client.send_post(text=msg)
                     print(f"[BLSKY] Posted: {msg}")
-                    log_event(LOG_FILE, msg)
+                    log_event(BSKY_LOG, msg)
                     self.posted_set.add(msg)
                     print("[LOGGED] Post saved to bsky_posts.log")
                 except Exception as e:

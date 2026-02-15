@@ -3,6 +3,14 @@ import argparse
 from datetime import datetime
 import markovify
 
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "..", "data")
+
+DEFAULT_INPUT = os.path.join(DATA_DIR, "learned.log")
+DEFAULT_OUTPUT = os.path.join(DATA_DIR, "learned_reshaped.log")
+DEFAULT_MASS_OUTPUT = os.path.join(DATA_DIR, "mass_posts.txt")
+
 def prune_learned_log(input_file, output_file, auto_overwrite=False, generate_mass=0, output_messages=None):
     pattern = re.compile(r"\[(.*?)\] (.+)")
     multi_word_lines = []
@@ -76,11 +84,11 @@ def prune_learned_log(input_file, output_file, auto_overwrite=False, generate_ma
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prune and restructure learned.log for LilVikBot")
-    parser.add_argument("-i", "--input", default="learned.log", help="Input learned log file")
-    parser.add_argument("-o", "--output", default="learned_reshaped.log", help="Output file (unless --overwrite is used)")
+    parser.add_argument("-i", "--input", default=DEFAULT_INPUT, help="Input learned log file")
+    parser.add_argument("-o", "--output", default=DEFAULT_OUTPUT, help="Output file (unless --overwrite is used)")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite the input file directly")
     parser.add_argument("--generate-mass", type=int, default=0, help="Number of mass-generated messages to output")
-    parser.add_argument("--output-messages", default=None, help="Path to save mass-generated messages")
+    parser.add_argument("--output-messages", default=DEFAULT_MASS_OUTPUT, help="Path to save mass-generated messages")
     args = parser.parse_args()
 
     prune_learned_log(

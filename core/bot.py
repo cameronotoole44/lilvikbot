@@ -17,12 +17,19 @@ TOKEN = raw_token.replace("oauth:", "")
 CHANNEL = os.getenv("TWITCH_CHANNEL", "").strip()
 BOT_ACTIVE = os.getenv("BOT_ACTIVE", "true").lower() == "true"
 
+BASE_DIR= os.path.dirname(os.path.abspath(__file__))
+DATA_DIR= os.path.join(BASE_DIR, "..", "data")
+FILTER_DIR= os.path.join(BASE_DIR, "..", "filters")
+
 MAX_MEMORY = 10000 # cap
-RAID_LOG_FILE = "raided_channels.log"
+LEARNED_LOG= os.path.join(DATA_DIR, "learned.log")
+SPOKEN_LOG= os.path.join(DATA_DIR, "spoken.log")
+RAID_LOG_FILE = os.path.join(DATA_DIR, "raided_channels.log")
+
 
 # filters
 def load_forbidden_words(filename):
-    path = os.path.join("filters", filename)
+    path = os.path.join(FILTER_DIR, "filters")
     if not os.path.exists(path):
         return set()
     with open(path, "r", encoding="utf-8") as f:
@@ -90,8 +97,8 @@ class LilVikBot(Bot):
         self._initialize_model()
 
     def _load_memory(self):
-        if os.path.exists("learned.log"):
-            with open("learned.log", "r", encoding="utf-8") as f:
+        if os.path.exists(LEARNED_LOG):
+            with open(LEARNED_LOG, "r", encoding="utf-8") as f:
                 for line in f:
                     match = re.match(r"\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] (.+)", line)
                     if match:

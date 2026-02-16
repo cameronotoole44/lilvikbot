@@ -2,16 +2,16 @@
 
 ![hero](demo/lilvikbot.png)
 
-A lightweight chatbot that learns from live chat using Markov chains. It mimics the style and tone of stream conversations and can follow streamers through raids, keeping the conversation going across different communities. It also posts occasional thoughts to [Bluesky](https://bsky.app/profile/lilvikbot.bsky.social), based on what it’s seen.
+A lightweight chatbot that learns from live chat using Markov chains. It learns the style and tone of stream conversations and can follow streamers through raids, keeping the conversation going across different communities. It also posts occasional thoughts to [Bluesky](https://bsky.app/profile/lilvikbot.bsky.social), based on what it’s learned.
 
 ## features
 
-- connects to Twitch chat via IRC (using `twitchio`)
+- connects to Twitch chat via (using `twitchio`)
 - passively listens and logs chat messages
 - builds a local Markov model to mimic the flow of real-time Twitch conversations
 - occasionally sends messages into chat based on what it’s learned
 - follows Twitch raids and joins new chats automatically (**in testing**)
-- logs visited/raided channels to a file
+- logs visited/raided channels to a file (**in testing**)
 - posts once or twice daily to Bluesky using model-generated thoughts
 - includes TOS-safe filtering and cooldown logic to avoid spam or sketchy output
 - optional manual approval step for Bluesky posts
@@ -44,7 +44,7 @@ A lightweight chatbot that learns from live chat using Markov chains. It mimics 
 - `soft_block.txt`: words it can learn, but will never speak or post.
 - `spam_block.txt`: filters for low-effort or repetitive content.
 
-Note: `hard_block.txt` is not included in this repo to avoid hosting offensive language. For a comprehensive open-source list of banned words, check out [LDNOOBW's banned word list](https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words).
+Note: For a comprehensive open-source list of banned words, check out [LDNOOBW's banned word list](https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words).
 
 ## extras
 
@@ -56,7 +56,6 @@ Note: `hard_block.txt` is not included in this repo to avoid hosting offensive l
 **implemented**
 
 - (っ ▀¯▀)つ twitch chat logging + markov model generation
-- (っ ▀¯▀)つ passive chat mimicry
 - (っ ▀¯▀)つ safe message filtering
 - (っ ▀¯▀)つ Bluesky auto-posting
 - (っ ▀¯▀)つ auto-follow raids and channel logging **in testing**
@@ -65,4 +64,4 @@ Note: `hard_block.txt` is not included in this repo to avoid hosting offensive l
 
 - ( ˇ෴ˇ ) persistent memory across sessions
 - ( ˇ෴ˇ ) tone/personality tuning via seed messages
-- ( ˇ෴ˇ ) twitter auto-posting
+- ( ˇ෴ˇ ) moments in chat for better context messages

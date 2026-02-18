@@ -2,6 +2,7 @@ import os
 import re
 import random
 import asyncio
+import logging
 import markovify
 from twitchio.ext.commands import Bot
 from twitchio.ext.routines import routine
@@ -16,18 +17,30 @@ raw_token = os.getenv("TWITCH_OAUTH_TOKEN", "").strip()
 TOKEN = raw_token.replace("oauth:", "")
 CHANNEL = os.getenv("TWITCH_CHANNEL", "").strip()
 BOT_ACTIVE = os.getenv("BOT_ACTIVE", "true").lower() == "true"
+FOLLOW_RAIDS = os.getenv("FOLLOW_RAIDS", "true").lower() == "true"
 
-BASE_DIR= os.path.dirname(os.path.abspath(__file__))
-DATA_DIR= os.path.join(BASE_DIR, "..", "data")
-FILTER_DIR= os.path.join(BASE_DIR, "..", "filters")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "..", "data")
+FILTER_DIR = os.path.join(BASE_DIR, "..", "filters")
 
-MAX_MEMORY = 10000 # cap
-LEARNED_LOG= os.path.join(DATA_DIR, "learned.log")
-SPOKEN_LOG= os.path.join(DATA_DIR, "spoken.log")
+LOG_FILE = os.path.join(DATA_DIR, "bot_debug.log")
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+MAX_MEMORY = 10000
+LEARNED_LOG = os.path.join(DATA_DIR, "learned.log")
+SPOKEN_LOG = os.path.join(DATA_DIR, "spoken.log")
 RAID_LOG_FILE = os.path.join(DATA_DIR, "raided_channels.log")
 
 
-# filters
 def load_forbidden_words(filename):
     path = os.path.join(FILTER_DIR, filename)
     if not os.path.exists(path):
@@ -42,21 +55,23 @@ def load_forbidden_words(filename):
 HARD_BLOCK = load_forbidden_words("hard_block.txt")
 SOFT_BLOCK = load_forbidden_words("soft_block.txt")
 SPAM_BLOCK = load_forbidden_words("spam_block.txt")
-print(f"[FILTER] Loaded {len(HARD_BLOCK)} hard, {len(SOFT_BLOCK)} soft, {len(SPAM_BLOCK)} spam blocks")
+logger.info(f"[FILTER] Loaded {len(HARD_BLOCK)} hard, {len(SOFT_BLOCK)} soft, {len(SPAM_BLOCK)} spam blocks")
+
 
 def is_learnable(text: str) -> bool:
     lower = text.lower()
     return not any(bad in lower for bad in HARD_BLOCK)
 
+
 def is_speakable(text: str) -> bool:
     lower = text.lower()
     return not any(bad in lower for bad in HARD_BLOCK.union(SOFT_BLOCK, SPAM_BLOCK))
+
 
 def clean_message(text: str) -> str:
     text = re.sub(r'@\w+', '', text)
     text = re.sub(r'https?://\S+|www\.\S+', '', text)
 
-    # if emote is repeated more than 3 times
     tokens = text.split()
     cleaned, last, streak = [], None, 0
     for token in tokens:
@@ -70,15 +85,17 @@ def clean_message(text: str) -> str:
             last = token
     return " ".join(cleaned).strip()
 
+
 def log_event(file, content):
     with open(file, "a", encoding="utf-8") as f:
         f.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {content}\n")
+
 
 def load_joined_channels():
     if not os.path.exists(RAID_LOG_FILE):
         return set()
     with open(RAID_LOG_FILE, "r", encoding="utf-8") as f:
-        return set(line.strip().split("] ")[-1].lower() for line in f if "] " in line)
+        return set(line.strip().split("] ")[-1].split(" (")[0].lower() for line in f if "] " in line)
 
 
 class LilVikBot(Bot):
@@ -91,6 +108,7 @@ class LilVikBot(Bot):
         self.dynamic_delay = 120
         self.raided_channels = load_joined_channels()
         self.moment_detector = MomentDetector(window_size=15)
+        self.raid_follower = None
         self.post_counter.start()
 
         self._load_memory()
@@ -105,40 +123,38 @@ class LilVikBot(Bot):
                         self.message_log.append(match.group(1).strip())
             if len(self.message_log) > MAX_MEMORY:
                 self.message_log = self.message_log[-MAX_MEMORY:]
-            print(f"[LOAD] Loaded {len(self.message_log)} messages from learned.log")
+            logger.info(f"[LOAD] Loaded {len(self.message_log)} messages from learned.log")
 
     def _initialize_model(self):
         if self.message_log:
             self.model = markovify.NewlineText("\n".join(self.message_log))
-            print("[MODEL] Initialized from loaded memory")
+            logger.info("[MODEL] Initialized from loaded memory")
 
     async def event_ready(self):
-        print(f"[READY] Connected as {self.nick}")
+        logger.info(f"[READY] Connected as {self.nick}")
+        
+        if FOLLOW_RAIDS:
+            from eventsub import RaidFollower
+            self.raid_follower = RaidFollower(self)
+            asyncio.create_task(self.raid_follower.start())
+            logger.info("[READY] EventSub raid follower started")
+        
         await asyncio.sleep(5)
 
     async def event_join(self, channel, user):
         if user.name == self.nick:
-            print(f"[JOINED] {self.nick} has joined #{channel.name}")
+            logger.info(f"[JOINED] {self.nick} has joined #{channel.name}")
 
     async def event_message(self, message):
         if message.echo:
             return
 
         cleaned = clean_message(message.content.strip())
-        print(f"[MESSAGE] {cleaned}")
+        logger.info(f"[MESSAGE] {cleaned}")
 
         self.moment_detector.add_message(cleaned)
-
-        # simple raid detection - no HTTP call
-        raid_match = re.search(r"is raiding with a party of", message.content.lower())
-        if raid_match and message.author:
-            new_channel = message.author.name.lower()
-            if new_channel not in self.raided_channels:
-                print(f"[RAID] Detected raid from @{new_channel}")
-                await self.join_channels([new_channel])
-                self.raided_channels.add(new_channel)
-                log_event(RAID_LOG_FILE, new_channel)
-                print(f"[RAID LOG] Added {new_channel} to {RAID_LOG_FILE}")
+        
+        logger.info(f"[MOMENT DEBUG] {self.moment_detector.detect().value}")
 
         if 3 < len(cleaned) < 200 and is_learnable(cleaned):
             if cleaned not in self.message_log:
@@ -147,12 +163,12 @@ class LilVikBot(Bot):
                 if len(self.message_log) > MAX_MEMORY:
                     self.message_log.pop(0)
                 if len(self.message_log) % 50 == 0:
-                    print("[TRAINING] Updating Markov model...")
+                    logger.info("[TRAINING] Updating Markov model...")
                     self.model = markovify.NewlineText("\n".join(self.message_log))
 
     def generate_contextual_message(self) -> str | None:
         moment = self.moment_detector.detect()
-        print(f"[MOMENT] Detected: {moment.value}")
+        logger.info(f"[MOMENT] Detected: {moment.value}")
 
         if not self.model:
             return self.moment_detector.get_fallback(moment)
@@ -190,11 +206,11 @@ class LilVikBot(Bot):
             return
         channel = self.connected_channels[0] if self.connected_channels else None
         if not channel:
-            print("[WARN] Channel not joined yet.")
+            logger.warning("[WARN] Channel not joined yet.")
             return
 
         await asyncio.sleep(self.dynamic_delay)
-        self.dynamic_delay = random.randint(120, 300)  # 2–5 minutes
+        self.dynamic_delay = random.randint(120, 300)
 
         message = self.generate_contextual_message()
 
@@ -204,10 +220,11 @@ class LilVikBot(Bot):
         try:
             await channel.send(message)
             log_event(SPOKEN_LOG, f"[{self.moment_detector.detect().value}] {message}")
-            print(f"[SENT] {message} (moment: {self.moment_detector.detect().value}, next in {self.dynamic_delay}s)")
+            logger.info(f"[SENT] {message} (moment: {self.moment_detector.detect().value}, next in {self.dynamic_delay}s)")
         except Exception as e:
-            print(f"[FAIL] {e}")
+            logger.error(f"[FAIL] {e}")
             self.can_speak = False
+
 
 if __name__ == "__main__":
     bot = LilVikBot()

@@ -41,7 +41,7 @@ twitchio==2.10.0
 typing-inspection==0.4.1
 typing_extensions==4.14.0
 Unidecode==1.4.0
-urllib3==2.6.3
+urllib3==2.7.0
 websocket-client==1.8.0
 websockets==15.0.1
 wsproto==1.2.0
